@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { APIError } from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -72,7 +73,16 @@ El índice de correctAnswer debe ser un número del 0 al 3, correspondiente a la
     console.log(`Respuestas número ${questionCounter} generadas por Claude: ${questions}`)
 
     return NextResponse.json({ questions })
-  } catch (error) {
-    return NextResponse.json({ error: 'Error al generar preguntas' }, { status: 500 })
+  } catch (e) {
+    if (e instanceof APIError) {
+      console.error('Error de la API de Anthropic:', e.message)
+      return NextResponse.json({ error: 'Error al generar preguntas' }, { status: e.status || 500 })
+    } else if (e instanceof Error) {
+      console.error('Error desconocido:', e.message)
+      return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+    } else {
+      console.error('Error inesperado:', e)
+      return NextResponse.json({ error: 'Error inesperado' }, { status: 500 })
+    }
   }
 }
