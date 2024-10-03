@@ -51,6 +51,7 @@ export default function PomodoroApp() {
   const [isPaused, setIsPaused] = useState(false)
   const [questions, setQuestions] = useState<Question[]>([])
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
   const alarmRef = useRef<HTMLAudioElement | null>(null)
 
   // Agregar una nueva variable de estado
@@ -274,21 +275,28 @@ export default function PomodoroApp() {
     audio.play()
   }
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    let file: File | undefined
+    if (event.type === 'change') {
+      file = (event as React.ChangeEvent<HTMLInputElement>).target.files?.[0]
+    } else if (event.type === 'drop') {
+      file = (event as React.DragEvent<HTMLDivElement>).dataTransfer.files[0]
+    }
+
     if (file) {
       try {
         const content = await readFileContent(file)
-        console.log("Contenido del archivo:", content.substring(0, 500)) // Log de los primeros 500 caracteres
-        
-        // Actualizar userNotes con el contenido del archivo
+        console.log("Contenido del archivo:", content.substring(0, 500))
         setUserNotes(content)
-        
-        // Eliminar la llamada a generateQuestions aquí
+        setUploadedFileName(file.name)
       } catch (error) {
         console.error('Error al procesar el archivo:', error)
       }
     }
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
   }
 
   const readFileContent = (file: File): Promise<string> => {
@@ -349,10 +357,9 @@ export default function PomodoroApp() {
 
   const handleStart = () => {
     setShowLanding(false)
-    // Eliminar la llamada a generateQuestions aquí
-    setMode('work')
+    setMode('idle') // Cambiar a modo 'idle' en lugar de 'work'
     setTimeLeft(workTime * 60)
-    setIsActive(true)
+    setIsActive(false) // Mantener el temporizador inactivo
   }
 
   const handleReturnToLanding = () => {
@@ -391,21 +398,28 @@ export default function PomodoroApp() {
             Siguiendo un método pomodoro, te hacemos preguntas generadas dinámicamente con inteligencia artificial, 
             en base a tus propios apuntes, logrando un mejor aprendizaje con respaldo científico sólido.
           </p>
-          <div className="mb-6">
-            <Textarea 
-              placeholder="Pega tus apuntes aquí..." 
-              className="w-full h-40 bg-gray-700 text-white border-gray-600"
-              value={userNotes}
-              onChange={(e) => setUserNotes(e.target.value)}
+          <div 
+            className="mb-6 border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer h-48 flex flex-col justify-center items-center"
+            onDrop={handleFileUpload}
+            onDragOver={handleDragOver}
+          >
+            <input 
+              type="file" 
+              id="file-upload" 
+              className="hidden" 
+              onChange={handleFileUpload} 
+              accept=".pdf,.doc,.docx,.txt" 
             />
-          </div>
-          <div className="flex justify-between items-center mb-8">
-            <label htmlFor="file-upload" className="cursor-pointer bg-gray-700 hover:bg-gray-600 py-2 px-4 rounded-xl flex items-center">
-              <PaperclipIcon className="mr-2" size={20} />
-              O adjunta tus apuntes
-              <input id="file-upload" type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.doc,.docx,.txt" />
+            <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
+              <PaperclipIcon className="mb-4" size={48} />
+              <p className="text-lg mb-2">Arrastra tus apuntes aquí o haz clic para seleccionar un archivo</p>
+              {uploadedFileName && (
+                <p className="mt-2 text-green-400 text-lg">Archivo subido: {uploadedFileName}</p>
+              )}
             </label>
-            <Button onClick={handleStart} size="lg" className="bg-green-500 hover:bg-green-600 rounded-xl">
+          </div>
+          <div className="flex justify-center">
+            <Button onClick={handleStart} size="lg" className="w-full sm:w-auto bg-green-500 hover:bg-green-600 rounded-xl">
               Empezar
             </Button>
           </div>
@@ -524,15 +538,9 @@ export default function PomodoroApp() {
             <Button onClick={resetTimer} variant="outline" className="border-gray-600 text-gray-600 hover:bg-gray-700 rounded-xl">
               Reiniciar
             </Button>
-            {isPaused ? (
-              <Button onClick={continueTimer} variant="default" className="bg-green-500 hover:bg-green-600 rounded-xl">
-                Continuar
-              </Button>
-            ) : (
-              <Button onClick={toggleTimer} variant={isActive ? "destructive" : "default"} className={`${isActive ? "" : "bg-green-500 hover:bg-green-600"} rounded-xl`}>
-                {isActive ? 'Pausar' : 'Empezar'}
-              </Button>
-            )}
+            <Button onClick={toggleTimer} variant={isActive ? "destructive" : "default"} className={`${isActive ? "" : "bg-green-500 hover:bg-green-600"} rounded-xl`}>
+              {isActive ? 'Pausar' : 'Empezar'}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -628,7 +636,7 @@ export default function PomodoroApp() {
       {isAlarmPlaying && !showModal && (
         <Button
           onClick={stopAlarm}
-          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500 hover:bg-red-600 text-white"
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-500 hover:bg-blue-600 text-white"
           size="sm"
         >
           <XCircleIcon className="mr-2 h-4 w-4" />
