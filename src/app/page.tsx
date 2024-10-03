@@ -165,6 +165,7 @@ export default function PomodoroApp() {
       setTimeLeft(workTime * 60)
     }
     setIsActive(true)
+    setQuestionsGenerated(false) // Restablecer este estado para el próximo ciclo
   }
 
   const handleNextQuestion = () => {
@@ -206,7 +207,8 @@ export default function PomodoroApp() {
     setQuizCompleted(false)
     setQuestionTimer(20)
     setShowCorrectAnswers(false)
-    setUserAnswers(Array(questions.length).fill(null))
+    setUserAnswers([])
+    setQuestions([]) // Vaciar el estado de las preguntas
     handleNextCycle()
   }
 
@@ -282,24 +284,7 @@ export default function PomodoroApp() {
         // Actualizar userNotes con el contenido del archivo
         setUserNotes(content)
         
-        // Si deseas generar preguntas inmediatamente después de subir el archivo, puedes llamar a generateQuestions aquí.
-        // Si no, puedes eliminar o comentar el código siguiente.
-        /*
-        const response = await fetch('/api/external', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ content }),
-        })
-
-        if (!response.ok) {
-          throw new Error('Error al enviar el archivo al servidor')
-        }
-
-        const { questions } = await response.json()
-        console.log('Preguntas generadas:', questions)
-        */
+        // Eliminar la llamada a generateQuestions aquí
       } catch (error) {
         console.error('Error al procesar el archivo:', error)
       }
@@ -364,7 +349,10 @@ export default function PomodoroApp() {
 
   const handleStart = () => {
     setShowLanding(false)
-    generateQuestions(userNotes)
+    // Eliminar la llamada a generateQuestions aquí
+    setMode('work')
+    setTimeLeft(workTime * 60)
+    setIsActive(true)
   }
 
   const handleReturnToLanding = () => {
