@@ -15,7 +15,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Progress } from "@/components/ui/progress"
-import { Textarea } from "@/components/ui/textarea"
 import { PaperclipIcon, ArrowLeftIcon, ChevronDownIcon, ChevronUpIcon, VolumeXIcon, Volume2Icon, XCircleIcon } from 'lucide-react'
 import mammoth from 'mammoth'
 
@@ -60,6 +59,44 @@ export default function PomodoroApp() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
 
+  const playAlarm = useCallback(() => {
+    if (!isMuted) {
+      const audio = new Audio('/alarm.wav')
+      audio.loop = true // Hacer que la alarma se repita
+      audio.play().catch(error => console.error('Error al reproducir el audio:', error))
+      alarmRef.current = audio
+      setIsAlarmPlaying(true)
+      
+      // Ocultar el botón de detener alarma después de 10 segundos
+      setTimeout(() => {
+        setIsAlarmPlaying(false)
+        if (alarmRef.current) {
+          alarmRef.current.pause()
+          alarmRef.current.currentTime = 0
+        }
+      }, 10000)
+    }
+  }, [isMuted])
+
+  const handleNextCycle = useCallback(() => {
+    if (mode === 'work') {
+      if (currentCycle === cyclesBeforeLongBreak) {
+        setMode('long-break')
+        setTimeLeft(longBreakTime * 60)
+        setCurrentCycle(1)
+      } else {
+        setMode('short-break')
+        setTimeLeft(shortBreakTime * 60)
+        setCurrentCycle(currentCycle + 1)
+      }
+    } else {
+      setMode('work')
+      setTimeLeft(workTime * 60)
+    }
+    setIsActive(true)
+    setQuestionsGenerated(false) // Restablecer este estado para el próximo ciclo
+  }, [mode, currentCycle, cyclesBeforeLongBreak, longBreakTime, shortBreakTime, workTime])
+
   const tick = useCallback(() => {
     const now = Date.now()
     const elapsed = Math.floor((now - startTimeRef.current) / 1000)
@@ -86,7 +123,7 @@ export default function PomodoroApp() {
     } else {
       setTimeLeft(newTimeLeft)
     }
-  }, [timeLeft, mode, userNotes, questionsGenerated])
+  }, [timeLeft, mode, userNotes, questionsGenerated, playAlarm, handleNextCycle])
 
   useEffect(() => {
     if (isActive) {
@@ -100,6 +137,37 @@ export default function PomodoroApp() {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [isActive, tick])
+
+  const handleNextQuestion = useCallback(() => {
+    if (questions.length === 0 || currentQuestion >= questions.length) {
+      console.error('No hay preguntas disponibles o se ha llegado al final del cuestionario')
+      return
+    }
+
+    const newUserAnswers = [...userAnswers]
+    newUserAnswers[currentQuestion] = selectedAnswer
+    setUserAnswers(newUserAnswers)
+
+    if (selectedAnswer === questions[currentQuestion].correctAnswer) {
+      setCorrectAnswers(prevCorrectAnswers => prevCorrectAnswers + 1)
+      setModalColor('correct')
+      // Elimina la llamada a playCorrectSound()
+    } else {
+      setModalColor('incorrect')
+      // Elimina la llamada a playIncorrectSound()
+    }
+
+    setTimeout(() => {
+      setModalColor('default')
+      if (currentQuestion < questions.length - 1) {
+        setCurrentQuestion(prevCurrentQuestion => prevCurrentQuestion + 1)
+        setSelectedAnswer(null)
+        setQuestionTimer(20)
+      } else {
+        setQuizCompleted(true)
+      }
+    }, 1000)
+  }, [currentQuestion, questions, selectedAnswer, userAnswers])
 
   useEffect(() => {
     let questionInterval: NodeJS.Timeout | null = null
@@ -117,7 +185,7 @@ export default function PomodoroApp() {
     return () => {
       if (questionInterval) clearInterval(questionInterval)
     }
-  }, [showModal, questionTimer, quizCompleted])
+  }, [showModal, questionTimer, quizCompleted, handleNextQuestion])
 
   const toggleTimer = () => {
     if (!isActive) {
@@ -132,11 +200,6 @@ export default function PomodoroApp() {
     setIsActive(!isActive)
   }
 
-  const continueTimer = () => {
-    setIsActive(true)
-    setIsPaused(false)
-  }
-
   const toggleOptions = () => {
     setOptionsCollapsed(!optionsCollapsed)
   }
@@ -148,56 +211,6 @@ export default function PomodoroApp() {
     setTimeLeft(workTime * 60)
     setCurrentCycle(1) // Reiniciar el ciclo actual
     setOptionsCollapsed(false) // Mostrar las opciones descolapsadas
-  }
-
-  const handleNextCycle = () => {
-    if (mode === 'work') {
-      if (currentCycle === cyclesBeforeLongBreak) {
-        setMode('long-break')
-        setTimeLeft(longBreakTime * 60)
-        setCurrentCycle(1)
-      } else {
-        setMode('short-break')
-        setTimeLeft(shortBreakTime * 60)
-        setCurrentCycle(currentCycle + 1)
-      }
-    } else {
-      setMode('work')
-      setTimeLeft(workTime * 60)
-    }
-    setIsActive(true)
-    setQuestionsGenerated(false) // Restablecer este estado para el próximo ciclo
-  }
-
-  const handleNextQuestion = () => {
-    if (questions.length === 0 || currentQuestion >= questions.length) {
-      console.error('No hay preguntas disponibles o se ha llegado al final del cuestionario')
-      return
-    }
-
-    const newUserAnswers = [...userAnswers]
-    newUserAnswers[currentQuestion] = selectedAnswer
-    setUserAnswers(newUserAnswers)
-
-    if (selectedAnswer === questions[currentQuestion].correctAnswer) {
-      setCorrectAnswers(prevCorrectAnswers => prevCorrectAnswers + 1)
-      setModalColor('correct')
-      playCorrectSound()
-    } else {
-      setModalColor('incorrect')
-      playIncorrectSound()
-    }
-
-    setTimeout(() => {
-      setModalColor('default')
-      if (currentQuestion < questions.length - 1) {
-        setCurrentQuestion(prevCurrentQuestion => prevCurrentQuestion + 1)
-        setSelectedAnswer(null)
-        setQuestionTimer(20)
-      } else {
-        setQuizCompleted(true)
-      }
-    }, 1000)
   }
 
   const handleQuizComplete = () => {
@@ -238,41 +251,12 @@ export default function PomodoroApp() {
     setCyclesBeforeLongBreak(value[0])
   }
 
-  const playAlarm = () => {
-    if (!isMuted) {
-      const audio = new Audio('/alarm.wav')
-      audio.loop = true // Hacer que la alarma se repita
-      audio.play().catch(error => console.error('Error al reproducir el audio:', error))
-      alarmRef.current = audio
-      setIsAlarmPlaying(true)
-      
-      // Ocultar el botón de detener alarma después de 10 segundos
-      setTimeout(() => {
-        setIsAlarmPlaying(false)
-        if (alarmRef.current) {
-          alarmRef.current.pause()
-          alarmRef.current.currentTime = 0
-        }
-      }, 10000)
-    }
-  }
-
   const stopAlarm = () => {
     if (alarmRef.current) {
       alarmRef.current.pause()
       alarmRef.current.currentTime = 0
     }
     setIsAlarmPlaying(false)
-  }
-
-  const playCorrectSound = () => {
-    const audio = new Audio('/correct.mp3')
-    audio.play()
-  }
-
-  const playIncorrectSound = () => {
-    const audio = new Audio('/incorrect.mp3')
-    audio.play()
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
