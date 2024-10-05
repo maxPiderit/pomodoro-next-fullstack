@@ -310,13 +310,12 @@ export default function PomodoroApp() {
 
       let allContent = ''
       let errorOccurred = false
-      let validFiles: File[] = []
 
-      for (const file of uniqueNewFiles) {
+      const processedFiles = await Promise.all(uniqueNewFiles.map(async (file) => {
         try {
           const content = await readFileContent(file)
           allContent += content + '\n\n'
-          validFiles.push(file)
+          return file
         } catch (error) {
           console.error('Error al procesar el archivo:', error)
           setUploadError(prevError => 
@@ -325,8 +324,11 @@ export default function PomodoroApp() {
               : `Error al procesar ${file.name}. Se omitirá este archivo.`
           )
           errorOccurred = true
+          return null
         }
-      }
+      }))
+
+      const validFiles = processedFiles.filter((file): file is File => file !== null)
 
       setUploadedFiles(prevFiles => [...prevFiles, ...uniqueNewFiles])
       setValidUploadedFiles(prevFiles => [...prevFiles, ...validFiles])
@@ -729,22 +731,22 @@ export default function PomodoroApp() {
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="text-3xl text-white">Quiz Completado</DialogTitle>
-                <DialogDescription className="text-2xl text-gray-300">
+                <DialogTitle className="text-2xl sm:text-3xl text-white">Quiz Completado</DialogTitle>
+                <DialogDescription className="text-lg sm:text-2xl text-gray-300">
                   Has respondido correctamente {correctAnswers} de {questions.length} preguntas.
                 </DialogDescription>
               </DialogHeader>
               {showCorrectAnswers && (
-                <div className="mt-4">
-                  <h3 className="font-semibold mb-2 text-2xl text-white">Respuestas correctas:</h3>
+                <div className="mt-4 max-h-60 overflow-y-auto">
+                  <h3 className="font-semibold mb-2 text-xl sm:text-2xl text-white">Respuestas correctas:</h3>
                   {questions.map((q, index) => (
                     <div key={index} className="mb-2">
-                      <p className="font-medium text-2xl text-white">{q.question}</p>
-                      <p className={`text-2xl ${userAnswers[index] === q.correctAnswer ? "text-green-400" : "text-red-400"}`}>
+                      <p className="font-medium text-lg sm:text-xl text-white">{q.question}</p>
+                      <p className={`text-lg sm:text-xl ${userAnswers[index] === q.correctAnswer ? "text-green-400" : "text-red-400"}`}>
                         Respuesta correcta: {q.options[q.correctAnswer]}
                       </p>
                       {userAnswers[index] !== null && userAnswers[index] !== q.correctAnswer && (
-                        <p className="text-2xl text-red-400">
+                        <p className="text-lg sm:text-xl text-red-400">
                           Tu respuesta: {q.options[userAnswers[index]!]}
                         </p>
                       )}
@@ -752,22 +754,20 @@ export default function PomodoroApp() {
                   ))}
                 </div>
               )}
-              <DialogFooter className="flex justify-center mt-4">
-                <div className="flex justify-center space-x-4 w-full">
-                  <Button 
-                    onClick={() => setShowCorrectAnswers(!showCorrectAnswers)} 
-                    variant="outline" 
-                    className="border-gray-600 text-gray-600 hover:bg-gray-700 hover:text-white rounded-xl text-2xl"
-                  >
-                    {showCorrectAnswers ? 'Ocultar respuestas' : 'Ver respuestas correctas'}
-                  </Button>
-                  <Button 
-                    onClick={handleQuizComplete} 
-                    className="bg-green-500 hover:bg-green-600 text-white rounded-xl text-2xl"
-                  >
-                    Comenzar ciclo siguiente
-                  </Button>
-                </div>
+              <DialogFooter className="flex flex-col sm:flex-row justify-center mt-4 space-y-2 sm:space-y-0 sm:space-x-2">
+                <Button 
+                  onClick={() => setShowCorrectAnswers(!showCorrectAnswers)} 
+                  variant="outline" 
+                  className="w-full sm:w-auto border-gray-600 text-gray-600 hover:bg-gray-700 hover:text-white rounded-xl text-lg sm:text-xl"
+                >
+                  {showCorrectAnswers ? 'Ocultar respuestas' : 'Ver respuestas correctas'}
+                </Button>
+                <Button 
+                  onClick={handleQuizComplete} 
+                  className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white rounded-xl text-lg sm:text-xl"
+                >
+                  Comenzar ciclo siguiente
+                </Button>
               </DialogFooter>
             </>
           )}
