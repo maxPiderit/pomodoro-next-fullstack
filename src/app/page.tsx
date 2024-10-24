@@ -22,6 +22,9 @@ import { pdfjs } from 'react-pdf'
 // Inicializar pdfjs
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
+// Agregar esta constante al principio del archivo, después de las importaciones
+const MAX_CHUNK_SIZE = 4000; // Tamaño máximo del chunk en caracteres
+
 type Question = {
   question: string;
   options: string[];
@@ -42,7 +45,7 @@ export default function PomodoroApp() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [correctAnswers, setCorrectAnswers] = useState(0)
   const [quizCompleted, setQuizCompleted] = useState(false)
-  const [questionTimer, setQuestionTimer] = useState(20)
+  const [questionTimer, setQuestionTimer] = useState(35)
   const [showCorrectAnswers, setShowCorrectAnswers] = useState(false)
   const [userAnswers, setUserAnswers] = useState<(number | null)[]>([])
   const [modalColor, setModalColor] = useState<'default' | 'correct' | 'incorrect'>('default')
@@ -66,6 +69,9 @@ export default function PomodoroApp() {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
+
+  // Agregar este nuevo estado
+  const [contentChunks, setContentChunks] = useState<string[]>([]);
 
   const tick = useCallback(() => {
     const now = Date.now()
@@ -197,7 +203,7 @@ export default function PomodoroApp() {
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(prevCurrentQuestion => prevCurrentQuestion + 1)
         setSelectedAnswer(null)
-        setQuestionTimer(20)
+        setQuestionTimer(35)
       } else {
         setQuizCompleted(true)
       }
@@ -210,7 +216,7 @@ export default function PomodoroApp() {
     setSelectedAnswer(null)
     setCorrectAnswers(0)
     setQuizCompleted(false)
-    setQuestionTimer(20)
+    setQuestionTimer(35)
     setShowCorrectAnswers(false)
     setUserAnswers([])
     setQuestions([]) // Vaciar el estado de las preguntas
@@ -348,11 +354,18 @@ export default function PomodoroApp() {
   }
 
   const readFileContent = async (file: File): Promise<string> => {
+    let content = '';
     if (file.type === 'application/pdf') {
-      return await readPdfContent(file)
+      content = await readPdfContent(file);
     } else {
-      return await readDocxOrTxtContent(file)
+      content = await readDocxOrTxtContent(file);
     }
+    
+    // Dividir el contenido en chunks si es necesario
+    const chunks = splitContentIntoChunks(content);
+    setContentChunks(prevChunks => [...prevChunks, ...chunks]);
+    
+    return content;
   }
 
   const readPdfContent = (file: File): Promise<string> => {
@@ -416,15 +429,23 @@ export default function PomodoroApp() {
   }
 
   const generateQuestions = async (content: string) => {
-    setIsLoadingQuestions(true)
+    setIsLoadingQuestions(true);
     try {
+      let selectedContent = content;
+      
+      // Si hay chunks, seleccionar uno aleatoriamente
+      if (contentChunks.length > 0) {
+        const randomIndex = Math.floor(Math.random() * contentChunks.length);
+        selectedContent = contentChunks[randomIndex];
+      }
+
       const response = await fetch('/api/external', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
-      })
+        body: JSON.stringify({ content: selectedContent }),
+      });
 
       if (!response.ok) {
         throw new Error('Error al generar preguntas')
@@ -448,6 +469,26 @@ export default function PomodoroApp() {
     } finally {
       setIsLoadingQuestions(false)
     }
+  }
+
+  // Agregar esta nueva función
+  const splitContentIntoChunks = (content: string): string[] => {
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    content.split('\n').forEach(line => {
+      if (currentChunk.length + line.length > MAX_CHUNK_SIZE) {
+        chunks.push(currentChunk);
+        currentChunk = '';
+      }
+      currentChunk += line + '\n';
+    });
+
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+
+    return chunks;
   }
 
   const handleStart = () => {
@@ -706,7 +747,7 @@ export default function PomodoroApp() {
                   {questions[currentQuestion].question}
                 </DialogDescription>
               </DialogHeader>
-              <Progress value={(questionTimer / 20) * 100} className="w-full bg-gray-600" />
+              <Progress value={(questionTimer / 35) * 100} className="w-full bg-gray-600" />
               <RadioGroup value={selectedAnswer !== null ? selectedAnswer.toString() : undefined} onValueChange={(value) => setSelectedAnswer(parseInt(value))}>
                 {questions[currentQuestion].options.map((option, index) => (
                   <div key={index} className="flex items-center space-x-2">

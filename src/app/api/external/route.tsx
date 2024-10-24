@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       model: "claude-3-5-sonnet-20240620",
       max_tokens: 4000,
       temperature: 0.8,
-      system: `Genera 6 preguntas de opción múltiple basadas en el siguiente texto. Cada pregunta debe tener 4 opciones de respuesta. Proporciona la respuesta correcta para cada pregunta. Responde SOLO con un array JSON en el siguiente formato, sin agregar ningún texto adicional:
+      system: `Genera 6 preguntas de opción múltiple basadas en el siguiente texto. Cada pregunta debe tener 4 opciones de respuesta. Proporciona la respuesta correcta para cada pregunta. Responde SOLO con un array JSON en el siguiente formato, sin agregar ningún texto adicional como 'Acá va la respuesta' o 'Here is a JSON array with 6 multiple choice questions based on':
 
 [
   {
@@ -42,9 +42,9 @@ El índice de correctAnswer debe ser un número del 0 al 3, correspondiente a la
 
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
-      max_tokens: 4000,
+      max_tokens: 7000,
       temperature: 0.8,
-      system: `Genera 6 preguntas de opción múltiple basadas en el siguiente texto. Cada pregunta debe tener 4 opciones de respuesta. Proporciona la respuesta correcta para cada pregunta. Responde SOLO con un array JSON en el siguiente formato, sin agregar ningún texto adicional:
+      system: `Genera 6 preguntas de opción múltiple basadas en el siguiente texto. Cada pregunta debe tener 4 opciones de respuesta. Proporciona la respuesta correcta para cada pregunta. Responde SOLO con un array JSON en el siguiente formato, sin agregar ningún texto adicional como 'Acá va la respuesta' o 'Here is a JSON array with 6 multiple choice questions based on':
 
 [
   {
